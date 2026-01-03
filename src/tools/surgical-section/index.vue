@@ -21,6 +21,10 @@ const params = reactive({
     d: 0.30,
     angle: 45
   },
+  bellows: {
+    thetaDeg: 60,       // 默认 60度 (即 pi/3)
+    epsilonPercent: 2.945 // 默认 2.945%
+  },
   settings: {
     showGuides: true
   }
@@ -50,6 +54,18 @@ const results = computed(() => {
 
   const ratio = totalW1 > 0 ? totalW2 / totalW1 : 0;
 
+  // 🟢 新增：波纹管长度计算 L = theta * (r/epsilon + R)
+  // 准备变量
+  const thetaRad = (params.bellows.thetaDeg * Math.PI) / 180; // 角度转弧度
+  const epsilon = params.bellows.epsilonPercent / 100;        // 百分比转小数
+  const r = params.sec2.d / 2;                                // 细丝半径 (r)
+  const R = params.sec2.pcd / 2;                              // 分度圆半径 (R)
+
+  let L = 0;
+  if (epsilon > 0) {
+    L = thetaRad * ((r / epsilon) + R);
+  }
+
   return {
     holeD1,
     holeD2,
@@ -57,7 +73,8 @@ const results = computed(() => {
     singleW2: w2,
     totalW1,
     totalW2,
-    ratio
+    ratio,
+    bellowsLength: L,
   };
 });
 
@@ -252,7 +269,7 @@ onMounted(() => {
           </div>
           <div class="control-row">
             <label>实际孔径</label>
-            <span class="text-blue-600 font-mono">{{ results.holeD1.toFixed(3) }}</span>
+            <span class="text-blue-600 font-mono">{{ results.holeD1.toFixed(2) }}</span>
           </div>
           <div class="control-row">
             <label>分布角度 (°)</label>
@@ -278,7 +295,7 @@ onMounted(() => {
           </div>
           <div class="control-row">
             <label>实际孔径</label>
-            <span class="text-blue-600 font-mono">{{ results.holeD2.toFixed(3) }}</span>
+            <span class="text-blue-600 font-mono">{{ results.holeD2.toFixed(2) }}</span>
           </div>
           <div class="control-row">
             <label>分布角度 (°)</label>
@@ -287,28 +304,65 @@ onMounted(() => {
         </div>
       </div>
 
+      <div> <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">
+            波纹管长度 (Bellows Length)
+          </h3>
+        
+        <div class="space-y-3">
+          <div class="control-row">
+            <label title="期望弯曲角度">弯曲角度 θ (°)</label>
+            <input type="number" v-model.number="params.bellows.thetaDeg" class="bg-white">
+          </div>
+          <div class="control-row">
+            <label title="参考极限应变">参考应变 ε (%)</label>
+            <input type="number" v-model.number="params.bellows.epsilonPercent" step="0.001" class="bg-white">
+          </div>
+          
+          <div class="mt-4 border-slate-200 flex justify-between items-center">
+            <span class="text-sm text-gray-600 font-medium">理论长度 L:</span>
+            <span class="text-xl font-bold text-indigo-600 font-mono">
+              {{ results.bellowsLength.toFixed(3) }} <span class="text-sm text-gray-500 font-normal">mm</span>
+            </span>
+          </div>
+          <!-- <p class="text-[10px] text-gray-400 font-mono mt-1 text-right">
+              Formula: L = θ * (r/ε + R)
+          </p> -->
+        </div>
+      </div>
+
     </div>
 
     <div class="flex-[1.5] flex flex-col gap-4">
       
-      <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 grid grid-cols-2 lg:grid-cols-3 gap-6">
         <div class="res-item">
           <span class="label">一二节最小壁厚</span>
           <span class="val text-lg" :class="resultMetrics.minWallThickness < params.base.gap ? 'text-red-600' : 'text-green-600'">
             {{ resultMetrics.minWallThickness.toFixed(3) }} mm
           </span>
         </div>
+
+        <div class="res-item">
+          <span class="label">单轴模量 (Single W1)</span>
+          <span class="val text-gray-700">{{ results.singleW1.toFixed(5) }}</span>
+        </div>
+
+        <div class="res-item">
+          <span class="label">单轴模量 (Single W2)</span>
+          <span class="val text-gray-700">{{ results.singleW2.toFixed(5) }}</span>
+        </div>
+
         <div class="res-item">
           <span class="label">刚度比 (W2/W1)</span>
           <span class="val text-lg text-emerald-600 font-bold">{{ results.ratio.toFixed(3) }}</span>
         </div>
         <div class="res-item">
           <span class="label">总模量 W1</span>
-          <span class="val text-blue-600">{{ results.totalW1.toFixed(4) }}</span>
+          <span class="val text-blue-600">{{ results.totalW1.toFixed(5) }}</span>
         </div>
         <div class="res-item">
           <span class="label">总模量 W2</span>
-          <span class="val text-blue-600">{{ results.totalW2.toFixed(4) }}</span>
+          <span class="val text-blue-600">{{ results.totalW2.toFixed(5) }}</span>
         </div>
       </div>
 
@@ -322,6 +376,7 @@ onMounted(() => {
       </div>
 
     </div>
+
   </div>
 </template>
 

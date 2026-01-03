@@ -23,7 +23,7 @@ const isHome = computed(() => route.path === '/');
           </svg>
           <span class="font-medium">返回工具箱</span>
         </button>
-        <span class="text-sm text-gray-400 font-mono">Tools.xx.top</span>
+        <!-- <span class="text-sm text-gray-400 font-mono">Tools.xx.top</span> -->
       </div>
     </nav>
 
