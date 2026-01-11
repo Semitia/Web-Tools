@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手术工具截面预览</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .main-layout {
+            display: flex;
+            /* 🟡 关键修改：允许换行 */
+            flex-wrap: wrap; 
+            gap: 20px;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            /* 🟡 修改：最大宽度设为100%或更大，适应宽屏 */
+            max-width: 100%; 
+            width: 100%;
+        }
+
+        .controls {
+            /* 🟡 修改：flex-basis 设为 300px，允许伸缩。当空间<300时会自动换行 */
+            flex: 1 1 300px;
+            padding-right: 20px;
+            /* 移除右边框，因为换行后右边框会很难看，改为下边框或用gap自然分隔 */
+            border-right: none; 
+        }
+        
+        /* 🟡 修改：让画布和下方的按钮纵向排列 */
+        .canvas-wrapper {
+            flex: 1 1 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center; /* 🟢 核心：确保所有子元素中轴对齐 */
+            background-color: #fff;
+            position: relative;
+        }
+
+        /* 🟢 新增：辅助线控制栏样式 */
+        .canvas-controls-bar {
+            margin-top: 15px;
+            padding: 8px 15px;
+            background-color: #f5f5f5;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #555;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 🟢 新增：只读数据的样式 (用于孔径显示) */
+        .readonly-value {
+            font-family: monospace;
+            color: #1976d2; /* 蓝色高亮 */
+            background-color: #e3f2fd;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        /* 🟢 新增：优化后的结果面板样式 */
+        .result-box {
+            width: 100%;           /* 在手机端占满容器 */
+            max-width: 560px;      /* 🟢 关键：限制最大宽 = 画布宽 */
+            box-sizing: border-box;/* 确保内边距不撑大盒子 */
+            /* 原有的样式保留... */
+            background-color: #fafafa;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            margin-bottom: 10px; /* 增加一点下间距，和画布隔开 */
+        }
+        .result-line {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #666;
+        }
+        .result-line.main {
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .result-line.highlight {
+            background-color: #e8f5e9;
+            padding: 5px;
+            border-radius: 4px;
+            color: #2e7d32;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        /* 🟢 新增：专门用于放大数字的类 */
+        .result-val {
+            font-family: Consolas, Monaco, monospace;
+            font-size: 16px; /* 默认数字变大 */
+            font-weight: bold;
+            color: #333;
+        }
+        .result-val.large {
+            font-size: 18px; /* 重点数字更大 */
+        }
+
+        canvas {
+            width: 100%;          /* 允许缩小 */
+            max-width: 560px;     /* 🟢 关键：锁定最大宽 */
+            height: auto;         /* 保持比例 */
+            /* 原有的样式保留... */
+            border: 1px solid #e0e0e0;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.02);
+        }
+
+        .section-header {
+            font-size: 16px;
+            font-weight: 700;
+            color: #444;
+            margin-top: 20px;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #eef0f5;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-header:first-of-type {
+            margin-top: 0;
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        label {
+            font-size: 14px;
+            color: #555;
+        }
+
+        input[type="number"] {
+            width: 90px;
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: right;
+            font-family: monospace;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input[type="number"]:focus {
+            border-color: #6a71a5;
+            outline: none;
+        }
+        
+        /* Highlight specific inputs */
+        #gap {
+            background-color: #fff8e1;
+            border-color: #ffe082;
+        }
+
+        .note {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .canvas-controls-bar {
+            width: 100%;
+            max-width: 560px;     /* 🟢 关键：对齐画布 */
+            box-sizing: border-box;
+            /* 原有的样式保留... */
+            margin-top: 15px;
+            padding: 8px 15px;
+            background-color: #f5f5f5;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #555;
+            display: flex;
+            align-items: center;
+            justify-content: center; /* 让里面的文字/复选框居中，好看一点 */
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>手术工具截面预览</h2>
+
+    <div class="main-layout">
+        <div class="controls">
+            
+            <div class="section-header">基础尺寸 (Base)</div>
+            <div class="control-row">
+                <label>外圆直径 (OD) (mm):</label>
+                <input type="number" id="od" value="2.40" step="0.01">
+            </div>
+            <div class="control-row">
+                <label>内圆直径 (ID) (mm):</label>
+                <input type="number" id="id" value="0.86" step="0.01">
+            </div>
+            <div class="control-row">
+                <label title="孔径 = 轴径 + 间隙">轴孔间隙 (Clearance) (mm):</label>
+                <input type="number" id="clearance" value="0.02" step="0.01" style="background-color: #e3f2fd;">
+            </div>
+            <div class="control-row">
+                <label title="孔与孔之间的最小实体壁厚">最小间距/壁厚 (Gap) (mm):</label>
+                <input type="number" id="gap" value="0.11" step="0.01">
+            </div>
+
+            <div class="section-header">第一节孔 (Section 1)</div>
+            <div class="control-row">
+                <label>分度圆直径 (PCD) (mm):</label>
+                <input type="number" id="pcd1" value="1.66" step="0.01">
+            </div>
+            <div class="control-row">
+                <label>轴数量 (4的倍数):</label>
+                <input type="number" id="n1" value="4" step="4">
+            </div>
+            <div class="control-row">
+                <label>轴直径 (Dia) (mm):</label>
+                <input type="number" id="d1" value="0.4" step="0.01">
+            </div>
+            <div class="control-row">
+                <label>实际孔径 (Hole) (mm):</label>
+                <span id="holeDia1Display" class="readonly-value">--</span>
+            </div>
+            <div class="control-row">
+                <label>中心分布角度 (°):</label>
+                <input type="number" id="angle1" value="0" title="0度表示分布在十字轴线上">
+            </div>
+
+            <div class="section-header">第二节孔 (Section 2)</div>
+            <div class="control-row">
+                <label>分度圆直径 (PCD) (mm):</label>
+                <input type="number" id="pcd2" value="1.85" step="0.01">
+            </div>
+            <div class="control-row">
+                <label>轴数量 (4的倍数):</label>
+                <input type="number" id="n2" value="8" step="4">
+            </div>
+            <div class="control-row">
+                <label>轴直径 (Dia) (mm):</label>
+                <input type="number" id="d2" value="0.3" step="0.01">
+            </div>
+            <div class="control-row">
+                <label>实际孔径 (Hole) (mm):</label>
+                <span id="holeDia2Display" class="readonly-value">--</span>
+            </div>
+            <div class="control-row">
+                <label>中心分布角度 (°):</label>
+                <input type="number" id="angle2" value="45" title="45度表示分布在对角线上">
+            </div>
+            <div class="note">第二节孔将关于45°线对称紧密排列</div>
+            
+        </div>
+
+        <div class="canvas-wrapper">
+            <div class="result-box">
+                <div class="result-line main" style="border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+                    <span style="font-size: 16px;">一二节最小壁厚:</span>
+                    <span id="minWallThickness" class="result-val large" style="color: #d32f2f;">--</span>
+                </div>
+
+                <div class="result-line">
+                    <span>单轴模量 (W1 / W2):</span>
+                    <span class="result-val" style="font-size: 16px;">
+                        <span id="singleW1">--</span> / <span id="singleW2">--</span>
+                    </span>
+                </div>
+                <div class="result-line">
+                    <span>总模量 (Total W1):</span>
+                    <span id="modulusSec1" class="result-val" style="color: #1565c0;">--</span>
+                </div>
+                <div class="result-line">
+                    <span>总模量 (Total W2):</span>
+                    <span id="modulusSec2" class="result-val" style="color: #1565c0;">--</span>
+                </div>
+                
+                <div class="result-line highlight" style="margin-top: 10px; padding: 10px; background-color: #e8f5e9;">
+                    <span style="font-weight: bold; color: #2e7d32; font-size: 15px;">刚度比 (W2 / W1):</span>
+                    <span id="modulusRatio" class="result-val large" style="color: #2e7d32;">--</span>
+                </div>
+            </div>
+
+            <canvas id="previewCanvas" width="560" height="560"></canvas>
+            
+            <div class="canvas-controls-bar">
+                <input type="checkbox" id="showGuides" checked>
+                <label for="showGuides" style="cursor: pointer; margin-bottom: 0;">显示辅助参考线 (Guides)</label>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById('previewCanvas');
+        const ctx = canvas.getContext('2d');
+        const inputs = document.querySelectorAll('input');
+
+        inputs.forEach(input => {
+            input.addEventListener('input', draw);
+            input.addEventListener('change', draw);
+        });
+
+        function draw() {
+            // 获取输入值
+            const od = parseFloat(document.getElementById('od').value) || 2.4;
+            const id = parseFloat(document.getElementById('id').value) || 1.02;
+            const gap = parseFloat(document.getElementById('gap').value) || 0.05;
+            const clearance = parseFloat(document.getElementById('clearance').value) || 0;
+
+            // Section 1
+            const pcd1 = parseFloat(document.getElementById('pcd1').value) || 1.66;
+            const n1 = parseInt(document.getElementById('n1').value) || 4;
+            const shaftD1 = parseFloat(document.getElementById('d1').value) || 0.40;
+            const angle1 = parseFloat(document.getElementById('angle1').value) || 0;
+
+            // Section 2
+            const pcd2 = parseFloat(document.getElementById('pcd2').value) || 1.85;
+            const n2 = parseInt(document.getElementById('n2').value) || 8;
+            const shaftD2 = parseFloat(document.getElementById('d2').value) || 0.30;
+            const angle2 = parseFloat(document.getElementById('angle2').value) || 45;
+
+            // 计算绘图用的“孔径” (Hole Dia)
+            const holeD1 = shaftD1 + clearance;
+            const holeD2 = shaftD2 + clearance;
+
+            const showGuides = document.getElementById('showGuides').checked;
+
+            // 基础绘图设置
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            // 自动缩放: 留白 30px
+            const maxRadius = od / 2;
+            const scale = (canvas.width / 2 - 30) / maxRadius;
+
+            // --- 绘图函数 ---
+
+            function drawCircle(r, color, stroke = true, dashed = false) {
+                if(r <= 0) return;
+                ctx.beginPath();
+                if (dashed) ctx.setLineDash([5, 3]); else ctx.setLineDash([]);
+                ctx.arc(cx, cy, r * scale, 0, 2 * Math.PI);
+                if (color) { ctx.fillStyle = color; ctx.fill(); }
+                if (stroke) { ctx.strokeStyle = '#333'; ctx.lineWidth = 1.2; ctx.stroke(); }
+                ctx.setLineDash([]);
+            }
+
+            // --- 核心逻辑: 簇状分布计算 ---
+            // pcd: 分度圆直径
+            // totalHoles: 总孔数
+            // dia: 孔径
+            // gap: 最小壁厚
+            // baseAnchorDeg: 簇的中心角度 (例如 0 或 45)
+            function drawClusteredHoles(pcd, totalHoles, dia, baseAnchorDeg) {
+                const holeCoordinates = [];
+                if (totalHoles <= 0 || pcd <= 0) return;
+
+                const r = (pcd / 2) * scale;
+                const holeR = (dia / 2) * scale;
+                
+                // 1. 计算单个孔+间距所占的角度 (弧长公式反推)
+                // 弦长 chord = dia + gap
+                // 角度 alpha = 2 * asin(chord / pcd)
+                // 注意: 这里的 chord 是几何上的直线距离
+                const chord = dia + gap;
+                // 防止 chord > pcd 导致计算错误
+                if (chord > pcd) return; 
+                const anglePerHole = 2 * Math.asin(chord / pcd); // 弧度
+
+                // 2. 每个象限有多少个孔
+                // 假设是对称设计，孔数应为4的倍数。如果不是，这里向下取整，仅作示意。
+                const holesPerQuadrant = Math.floor(totalHoles / 4);
+                if (holesPerQuadrant === 0) return;
+
+                // 3. 计算一个簇的总张角
+                // 簇宽 = (孔数-1) * 间距角。如果是1个孔，宽度为0。
+                const clusterWidth = (holesPerQuadrant - 1) * anglePerHole;
+
+                // 4. 绘制四个簇 (0, 90, 180, 270 偏移 + baseAnchorDeg)
+                for (let q = 0; q < 4; q++) {
+                    // 当前象限的中心角度 (弧度)
+                    // 注意：Canvas坐标系，顺时针为正，但数学习惯逆时针。
+                    // 为了简单，我们按顺时针计算 (3点钟方向为0)
+                    // baseAnchorDeg 输入如果是 45，我们希望是在 45度方向。
+                    // 转换角度：Math.PI * (baseAnchorDeg + q*90) / 180
+                    // 为了符合常规工程直觉 (0度在右边)，这里直接加。
+                    
+                    const quadrantCenterRad = (baseAnchorDeg + q * 90) * (Math.PI / 180);
+                    
+                    // 簇的起始角度 (中心 - 半宽)
+                    const startRad = quadrantCenterRad - (clusterWidth / 2);
+
+                    for (let i = 0; i < holesPerQuadrant; i++) {
+                        const theta = startRad + i * anglePerHole;
+                        
+                        // 极坐标转直角坐标 (Canvas Y轴向下)
+                        const x = cx + r * Math.cos(theta);
+                        const y = cy + r * Math.sin(theta); 
+                        holeCoordinates.push({x: x, y: y});
+
+                        // 绘制孔
+                        ctx.beginPath();
+                        ctx.arc(x, y, holeR, 0, 2 * Math.PI);
+                        ctx.fillStyle = '#7a81b5'; // 深紫
+                        ctx.fill();
+                        ctx.strokeStyle = '#000';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+
+                        // 十字标记
+                        if (showGuides) {
+                            ctx.beginPath();
+                            const len = holeR + 4;
+                            // 径向线
+                            ctx.moveTo(x - len * Math.cos(theta), y - len * Math.sin(theta));
+                            ctx.lineTo(x + len * Math.cos(theta), y + len * Math.sin(theta));
+                            // 切向线
+                            ctx.moveTo(x - len * Math.cos(theta + Math.PI/2), y - len * Math.sin(theta + Math.PI/2));
+                            ctx.lineTo(x + len * Math.cos(theta + Math.PI/2), y + len * Math.sin(theta + Math.PI/2));
+                            ctx.strokeStyle = '#333';
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        }
+                    }
+                }
+
+                // 绘制PCD虚线
+                if (showGuides) {
+                    drawCircle(pcd / 2, null, true, true);
+                }
+
+                return holeCoordinates;
+            }
+
+            // --- 开始绘图流程 ---
+
+            // 1. 外圆 (OD)
+            drawCircle(od / 2, '#9da3c9', true);
+
+            // 2. 第一节孔 (Section 1)
+            // 逻辑：锚定在 angle1 (默认0度)
+            const points1 = drawClusteredHoles(pcd1, n1, holeD1, angle1);
+
+            // 3. 第二节孔 (Section 2)
+            // 逻辑：锚定在 angle2 (默认45度)，并使用相同的 Gap 挤在一起
+            const points2 = drawClusteredHoles(pcd2, n2, holeD2, angle2);
+
+            // 4. 内圆 (ID)
+            drawCircle(id / 2, '#6a71a5', true);
+
+            // 5. 全局十字线和对角线
+            if (showGuides) {
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 0.5;
+                ctx.setLineDash([20, 5, 5, 5]); // 长点划线
+
+                // 0-180 & 90-270
+                ctx.beginPath();
+                ctx.moveTo(cx - maxRadius * scale - 10, cy);
+                ctx.lineTo(cx + maxRadius * scale + 10, cy);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - maxRadius * scale - 10);
+                ctx.lineTo(cx, cy + maxRadius * scale + 10);
+                ctx.stroke();
+
+                // 45度线 (辅助看对称性)
+                ctx.setLineDash([5, 5]); // 虚线
+                ctx.strokeStyle = '#666';
+                const diagLen = (maxRadius * scale) + 5;
+                const diagOffset = diagLen * Math.sin(Math.PI/4);
+                
+                ctx.beginPath();
+                ctx.moveTo(cx - diagOffset, cy - diagOffset);
+                ctx.lineTo(cx + diagOffset, cy + diagOffset);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(cx - diagOffset, cy + diagOffset);
+                ctx.lineTo(cx + diagOffset, cy - diagOffset);
+                ctx.stroke();
+                
+                ctx.setLineDash([]);
+            }
+            
+            // --- 测算结果：壁厚 ---
+            if (points1 && points1.length > 0 && points2 && points2.length > 0) {
+                let minDistPx = Infinity;
+                for (let p1 of points1) {
+                    for (let p2 of points2) {
+                        const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+                        if (dist < minDistPx) minDistPx = dist;
+                    }
+                }
+                const distMM = minDistPx / scale;
+                // 🟡【逻辑变更】壁厚 = 圆心距 - 孔半径1 - 孔半径2
+                const clearanceVal = distMM - (holeD1 / 2) - (holeD2 / 2);
+
+                const resEl = document.getElementById('minWallThickness');
+                resEl.textContent = clearanceVal.toFixed(3) + ' mm';
+                if (clearanceVal < gap) resEl.style.color = "red";
+                else resEl.style.color = "green";
+            } else {
+                document.getElementById('minWallThickness').textContent = "--";
+            }
+
+            const calcW = (d) => (Math.PI * Math.pow(d, 3)) / 32;
+
+            const w1 = calcW(shaftD1);
+            const w2 = calcW(shaftD2);
+            
+            // 总和
+            const totalW_Sec1 = (n1 * w1) + (n2 * w2);
+            const totalW_Sec2 = (n2 * w2);
+
+            // 🟢【新增】显示实际孔径 (Hole Diameter)
+            document.getElementById('holeDia1Display').textContent = holeD1.toFixed(2);
+            document.getElementById('holeDia2Display').textContent = holeD2.toFixed(2);
+
+            // 🟢【新增】显示单根轴模量 (Single Shaft Modulus)
+            // w1 和 w2 已经在上一步通过 calcW 算出来了
+            // 使用科学计数法或者保留更多小数位，因为单根数值可能很小
+            document.getElementById('singleW1').textContent = w1.toFixed(5); 
+            document.getElementById('singleW2').textContent = w2.toFixed(5);
+
+            // 总模量显示
+            document.getElementById('modulusSec1').textContent = totalW_Sec1.toFixed(5);
+            document.getElementById('modulusSec2').textContent = totalW_Sec2.toFixed(5);
+
+            // 刚度比显示
+            let ratio = 0;
+            if (totalW_Sec1 > 0) ratio = totalW_Sec2 / totalW_Sec1;
+            document.getElementById('modulusRatio').textContent = ratio.toFixed(3);
+
+        }
+
+        // 初始化
+        draw();
+    </script>
+</body>
+</html>

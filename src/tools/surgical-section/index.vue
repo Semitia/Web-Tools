@@ -44,7 +44,7 @@ const results = computed(() => {
   const holeD2 = params.sec2.d + params.base.clearance;
 
   // 惯性矩/模量计算公式 (圆形截面)
-  const calcW = (d: number) => (Math.PI * Math.pow(d, 3)) / 32;
+  const calcW = (d: number) => (Math.PI * Math.pow(d, 4)) / 64;
   
   const w1 = calcW(params.sec1.d);
   const w2 = calcW(params.sec2.d);
