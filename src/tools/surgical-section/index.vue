@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { useDark } from '@vueuse/core';
+
+const { t } = useI18n();
+const isDark = useDark();
 
 // --- 1. 定义响应式状态 (State) ---
 const params = reactive({
@@ -97,6 +102,13 @@ const draw = () => {
   const maxRadius = params.base.od / 2;
   const scale = (width / 2 - 30) / maxRadius;
 
+  // Theme colors
+  const mainStroke = isDark.value ? '#e2e8f0' : '#333'; // slate-200 : gray-800
+  const guideStroke = isDark.value ? '#94a3b8' : '#666'; // slate-400 : gray-500
+  const axisStroke = isDark.value ? '#cbd5e1' : '#000'; // slate-300 : black
+  const holeFill = '#7a81b5';
+  const holeStroke = isDark.value ? '#e2e8f0' : '#000';
+
   // --- 内部绘图工具函数 ---
   const drawCircle = (r: number, color: string | null, stroke = true, dashed = false) => {
     if (r <= 0) return;
@@ -104,7 +116,7 @@ const draw = () => {
     if (dashed) ctx.setLineDash([5, 3]); else ctx.setLineDash([]);
     ctx.arc(cx, cy, r * scale, 0, 2 * Math.PI);
     if (color) { ctx.fillStyle = color; ctx.fill(); }
-    if (stroke) { ctx.strokeStyle = '#333'; ctx.lineWidth = 1.2; ctx.stroke(); }
+    if (stroke) { ctx.strokeStyle = mainStroke; ctx.lineWidth = 1.2; ctx.stroke(); }
     ctx.setLineDash([]);
   };
 
@@ -140,9 +152,9 @@ const draw = () => {
         // 绘制孔
         ctx.beginPath();
         ctx.arc(x, y, holeR, 0, 2 * Math.PI);
-        ctx.fillStyle = '#7a81b5';
+        ctx.fillStyle = holeFill;
         ctx.fill();
-        ctx.strokeStyle = '#000';
+        ctx.strokeStyle = holeStroke;
         ctx.lineWidth = 1;
         ctx.stroke();
 
@@ -156,7 +168,7 @@ const draw = () => {
           // 切向
           ctx.moveTo(x - len * Math.cos(theta + Math.PI/2), y - len * Math.sin(theta + Math.PI/2));
           ctx.lineTo(x + len * Math.cos(theta + Math.PI/2), y + len * Math.sin(theta + Math.PI/2));
-          ctx.strokeStyle = '#333';
+          ctx.strokeStyle = mainStroke;
           ctx.lineWidth = 0.5;
           ctx.stroke();
         }
@@ -184,14 +196,14 @@ const draw = () => {
 
   // 5. 辅助线
   if (params.settings.showGuides) {
-    ctx.strokeStyle = '#000';
+    ctx.strokeStyle = axisStroke;
     ctx.lineWidth = 0.5;
     ctx.setLineDash([20, 5, 5, 5]);
     ctx.beginPath(); ctx.moveTo(cx - maxRadius * scale - 10, cy); ctx.lineTo(cx + maxRadius * scale + 10, cy); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx, cy - maxRadius * scale - 10); ctx.lineTo(cx, cy + maxRadius * scale + 10); ctx.stroke();
     
     ctx.setLineDash([5, 5]);
-    ctx.strokeStyle = '#666';
+    ctx.strokeStyle = guideStroke;
     const diagLen = (maxRadius * scale) + 5;
     const offset = diagLen * Math.sin(Math.PI/4);
     ctx.beginPath(); ctx.moveTo(cx - offset, cy - offset); ctx.lineTo(cx + offset, cy + offset); ctx.stroke();
@@ -220,6 +232,11 @@ watch(params, () => {
   draw();
 }, { deep: true });
 
+watch(isDark, () => {
+  // Give a small delay for transitions or just draw
+  requestAnimationFrame(draw);
+});
+
 onMounted(() => {
   draw();
 });
@@ -228,105 +245,109 @@ onMounted(() => {
 <template>
   <div class="flex flex-col lg:flex-row gap-6 p-4 max-w-7xl mx-auto mt-6">
     
-    <div class="flex-1 bg-white p-6 rounded-xl shadow-sm border border-gray-100 min-w-[320px]">
+    <div class="flex-1 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 min-w-[320px] transition-colors duration-300">
       
       <div class="mb-6">
-        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">基础尺寸 (Base)</h3>
+        <h3 class="text-sm font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-4 border-b dark:border-slate-700 pb-2">
+          {{ t('surgical.base.title') }}
+        </h3>
         <div class="space-y-3">
           <div class="control-row">
-            <label>外圆直径 (OD)</label>
+            <label>{{ t('surgical.base.od') }}</label>
             <input type="number" v-model.number="params.base.od" step="0.01">
           </div>
           <div class="control-row">
-            <label>内圆直径 (ID)</label>
+            <label>{{ t('surgical.base.id') }}</label>
             <input type="number" v-model.number="params.base.id" step="0.01">
           </div>
           <div class="control-row">
-            <label>轴孔间隙 (Clearance)</label>
-            <input type="number" v-model.number="params.base.clearance" step="0.01" class="bg-blue-50 border-blue-200">
+            <label>{{ t('surgical.base.clearance') }}</label>
+            <input type="number" v-model.number="params.base.clearance" step="0.01" class="!bg-blue-50 dark:!bg-blue-900/30 !border-blue-200 dark:!border-blue-800">
           </div>
           <div class="control-row">
-            <label>最小间距 (Gap)</label>
-            <input type="number" v-model.number="params.base.gap" step="0.01" class="bg-yellow-50 border-yellow-200">
+            <label>{{ t('surgical.base.gap') }}</label>
+            <input type="number" v-model.number="params.base.gap" step="0.01" class="!bg-yellow-50 dark:!bg-yellow-900/30 !border-yellow-200 dark:!border-yellow-800">
           </div>
         </div>
       </div>
 
       <div class="mb-6">
-        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">第一节孔 (Section 1)</h3>
+        <h3 class="text-sm font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-4 border-b dark:border-slate-700 pb-2">
+          {{ t('surgical.section1.title') }}
+        </h3>
         <div class="space-y-3">
           <div class="control-row">
-            <label>分度圆 (PCD)</label>
+            <label>{{ t('surgical.pcd') }}</label>
             <input type="number" v-model.number="params.sec1.pcd" step="0.01">
           </div>
           <div class="control-row">
-            <label>轴数量 (N)</label>
+            <label>{{ t('surgical.n') }}</label>
             <input type="number" v-model.number="params.sec1.n" step="4">
           </div>
           <div class="control-row">
-            <label>轴直径 (Dia)</label>
+            <label>{{ t('surgical.dia') }}</label>
             <input type="number" v-model.number="params.sec1.d" step="0.01">
           </div>
           <div class="control-row">
-            <label>实际孔径</label>
-            <span class="text-blue-600 font-mono">{{ results.holeD1.toFixed(2) }}</span>
+            <label>{{ t('surgical.real_hole') }}</label>
+            <span class="text-blue-600 dark:text-blue-400 font-mono">{{ results.holeD1.toFixed(2) }}</span>
           </div>
           <div class="control-row">
-            <label>分布角度 (°)</label>
+            <label>{{ t('surgical.angle') }}</label>
             <input type="number" v-model.number="params.sec1.angle">
           </div>
         </div>
       </div>
 
       <div class="mb-6">
-        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">第二节孔 (Section 2)</h3>
+        <h3 class="text-sm font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-4 border-b dark:border-slate-700 pb-2">
+          {{ t('surgical.section2.title') }}
+        </h3>
         <div class="space-y-3">
           <div class="control-row">
-            <label>分度圆 (PCD)</label>
+            <label>{{ t('surgical.pcd') }}</label>
             <input type="number" v-model.number="params.sec2.pcd" step="0.01">
           </div>
           <div class="control-row">
-            <label>轴数量 (N)</label>
+            <label>{{ t('surgical.n') }}</label>
             <input type="number" v-model.number="params.sec2.n" step="4">
           </div>
           <div class="control-row">
-            <label>轴直径 (Dia)</label>
+            <label>{{ t('surgical.dia') }}</label>
             <input type="number" v-model.number="params.sec2.d" step="0.01">
           </div>
           <div class="control-row">
-            <label>实际孔径</label>
-            <span class="text-blue-600 font-mono">{{ results.holeD2.toFixed(2) }}</span>
+            <label>{{ t('surgical.real_hole') }}</label>
+            <span class="text-blue-600 dark:text-blue-400 font-mono">{{ results.holeD2.toFixed(2) }}</span>
           </div>
           <div class="control-row">
-            <label>分布角度 (°)</label>
+            <label>{{ t('surgical.angle') }}</label>
             <input type="number" v-model.number="params.sec2.angle">
           </div>
         </div>
       </div>
 
-      <div> <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b pb-2">
-            波纹管长度 (Bellows Length)
-          </h3>
+      <div> 
+        <h3 class="text-sm font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-4 border-b dark:border-slate-700 pb-2">
+          {{ t('surgical.bellows.title') }}
+        </h3>
         
         <div class="space-y-3">
           <div class="control-row">
-            <label title="期望弯曲角度">弯曲角度 θ (°)</label>
-            <input type="number" v-model.number="params.bellows.thetaDeg" class="bg-white">
+            <label :title="t('surgical.bellows.theta')">{{ t('surgical.bellows.theta') }}</label>
+            <input type="number" v-model.number="params.bellows.thetaDeg">
           </div>
           <div class="control-row">
-            <label title="参考极限应变">参考应变 ε (%)</label>
-            <input type="number" v-model.number="params.bellows.epsilonPercent" step="0.001" class="bg-white">
+            <label :title="t('surgical.bellows.epsilon')">{{ t('surgical.bellows.epsilon') }}</label>
+            <input type="number" v-model.number="params.bellows.epsilonPercent" step="0.001">
           </div>
           
-          <div class="mt-4 border-slate-200 flex justify-between items-center">
-            <span class="text-sm text-gray-600 font-medium">理论长度 L:</span>
-            <span class="text-xl font-bold text-indigo-600 font-mono">
+          <div class="mt-4 border-slate-200 dark:border-slate-700 flex justify-between items-center">
+            <span class="text-sm text-gray-600 dark:text-gray-400 font-medium">{{ t('surgical.bellows.length_label') }}</span>
+            <span class="text-xl font-bold text-indigo-600 dark:text-indigo-400 font-mono">
               {{ results.bellowsLength.toFixed(3) }} <span class="text-sm text-gray-500 font-normal">mm</span>
             </span>
           </div>
-          <!-- <p class="text-[10px] text-gray-400 font-mono mt-1 text-right">
-              Formula: L = θ * (r/ε + R)
-          </p> -->
         </div>
       </div>
 
@@ -334,44 +355,44 @@ onMounted(() => {
 
     <div class="flex-[1.5] flex flex-col gap-4">
       
-      <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 grid grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-5 grid grid-cols-2 lg:grid-cols-3 gap-6 transition-colors duration-300">
         <div class="res-item">
-          <span class="label">一二节最小壁厚</span>
-          <span class="val text-lg" :class="resultMetrics.minWallThickness < params.base.gap ? 'text-red-600' : 'text-green-600'">
+          <span class="label">{{ t('surgical.results.min_wall') }}</span>
+          <span class="val text-lg" :class="resultMetrics.minWallThickness < params.base.gap ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'">
             {{ resultMetrics.minWallThickness.toFixed(3) }} mm
           </span>
         </div>
 
         <div class="res-item">
-          <span class="label">单轴模量 (Single W1)</span>
-          <span class="val text-gray-700">{{ results.singleW1.toFixed(5) }}</span>
+          <span class="label">{{ t('surgical.results.single_w1') }}</span>
+          <span class="val text-gray-700 dark:text-slate-300">{{ results.singleW1.toFixed(5) }}</span>
         </div>
 
         <div class="res-item">
-          <span class="label">单轴模量 (Single W2)</span>
-          <span class="val text-gray-700">{{ results.singleW2.toFixed(5) }}</span>
+          <span class="label">{{ t('surgical.results.single_w2') }}</span>
+          <span class="val text-gray-700 dark:text-slate-300">{{ results.singleW2.toFixed(5) }}</span>
         </div>
 
         <div class="res-item">
-          <span class="label">刚度比 (W2/W1)</span>
-          <span class="val text-lg text-emerald-600 font-bold">{{ results.ratio.toFixed(3) }}</span>
+          <span class="label">{{ t('surgical.results.ratio') }}</span>
+          <span class="val text-lg text-emerald-600 dark:text-emerald-400 font-bold">{{ results.ratio.toFixed(3) }}</span>
         </div>
         <div class="res-item">
-          <span class="label">总模量 W1</span>
-          <span class="val text-blue-600">{{ results.totalW1.toFixed(5) }}</span>
+          <span class="label">{{ t('surgical.results.total_w1') }}</span>
+          <span class="val text-blue-600 dark:text-blue-400">{{ results.totalW1.toFixed(5) }}</span>
         </div>
         <div class="res-item">
-          <span class="label">总模量 W2</span>
-          <span class="val text-blue-600">{{ results.totalW2.toFixed(5) }}</span>
+          <span class="label">{{ t('surgical.results.total_w2') }}</span>
+          <span class="val text-blue-600 dark:text-blue-400">{{ results.totalW2.toFixed(5) }}</span>
         </div>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col items-center">
+      <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 flex flex-col items-center transition-colors duration-300">
         <canvas ref="canvasRef" width="560" height="560" class="w-full h-auto max-w-[560px]"></canvas>
         
-        <div class="mt-6 flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full">
+        <div class="mt-6 flex items-center gap-2 bg-gray-100 dark:bg-slate-700 px-4 py-2 rounded-full transition-colors">
           <input type="checkbox" id="guides" v-model="params.settings.showGuides" class="w-4 h-4 text-blue-600 rounded cursor-pointer">
-          <label for="guides" class="text-sm text-gray-600 select-none cursor-pointer">显示辅助参考线 (Show Guides)</label>
+          <label for="guides" class="text-sm text-gray-600 dark:text-gray-300 select-none cursor-pointer">{{ t('surgical.show_guides') }}</label>
         </div>
       </div>
 
@@ -386,16 +407,16 @@ onMounted(() => {
   @apply flex justify-between items-center;
 }
 .control-row label {
-  @apply text-sm text-gray-600;
+  @apply text-sm text-gray-600 dark:text-gray-400;
 }
 .control-row input {
-  @apply w-24 px-3 py-1 text-right border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all font-mono text-sm;
+  @apply w-24 px-3 py-1 text-right border border-gray-300 dark:border-slate-600 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all font-mono text-sm bg-white dark:bg-slate-700 dark:text-white;
 }
 .res-item {
   @apply flex flex-col;
 }
 .res-item .label {
-  @apply text-xs text-gray-500 mb-1 uppercase tracking-wider;
+  @apply text-xs text-gray-500 dark:text-slate-500 mb-1 uppercase tracking-wider;
 }
 .res-item .val {
   @apply font-mono font-bold;
