@@ -21,7 +21,9 @@ const messages = {
         gap: 'Min Gap (Gap)'
       },
       section1: {
-        title: 'Section 1 (Section 1)'
+        title: 'Section 1 (Section 1)',
+        min_radius_label: 'Min Bend Radius',
+        min_radius_tip: 'Minimum centerline bend radius with Section 1 strain limited to {epsilon}%'
       },
       section2: {
         title: 'Section 2 (Section 2)'
@@ -39,6 +41,7 @@ const messages = {
       },
       results: {
         min_wall: 'Min Wall Thickness',
+        min_bend_radius_sec1: 'Sec.1 Min Bend Radius',
         single_w1: 'Single Modulus (W1)',
         single_w2: 'Single Modulus (W2)',
         ratio: 'Stiffness Ratio (W2/W1)',
@@ -68,7 +71,9 @@ const messages = {
         gap: '最小间距 (Gap)'
       },
       section1: {
-        title: '第一节孔 (Section 1)'
+        title: '第一节孔 (Section 1)',
+        min_radius_label: '最小弯曲半径',
+        min_radius_tip: '基于第一段粗丝应变限制为 {epsilon}% 的最小中心线弯曲半径'
       },
       section2: {
         title: '第二节孔 (Section 2)'
@@ -86,6 +91,7 @@ const messages = {
       },
       results: {
         min_wall: '一二节最小壁厚',
+        min_bend_radius_sec1: '第一段最小弯曲半径',
         single_w1: '单轴模量 (Single W1)',
         single_w2: '单轴模量 (Single W2)',
         ratio: '刚度比 (W2/W1)',

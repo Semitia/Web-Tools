@@ -9,15 +9,15 @@ const isDark = useDark();
 // --- 1. 定义响应式状态 (State) ---
 const params = reactive({
   base: {
-    od: 2.40,      // 外圆直径
-    id: 0.86,      // 内圆直径
+    od: 2.80,      // 外圆直径
+    id: 1.00,      // 内圆直径
     clearance: 0.02, // 轴孔间隙
     gap: 0.11      // 最小壁厚
   },
   sec1: {
     pcd: 1.66,
     n: 4,
-    d: 0.40,
+    d: 0.48,
     angle: 0
   },
   sec2: {
@@ -28,7 +28,7 @@ const params = reactive({
   },
   bellows: {
     thetaDeg: 60,       // 默认 60度 (即 pi/3)
-    epsilonPercent: 2.945 // 默认 2.945%
+    epsilonPercent: 2.0 // 默认 2.0%
   },
   settings: {
     showGuides: true
@@ -59,8 +59,14 @@ const results = computed(() => {
 
   const ratio = totalW1 > 0 ? totalW2 / totalW1 : 0;
 
-  // 🟢 新增：波纹管长度计算 L = theta * (r/epsilon + R)
-  // 准备变量
+  // 应变-曲率关系采用 epsilon = r / (rho - R)
+  // 其中 rho 为弯曲中心线半径，R 为丝中心到截面中心的半径
+  const sec1LimitEpsilon = 0.02;
+  const sec1r = params.sec1.d / 2;
+  const sec1R = params.sec1.pcd / 2;
+  const minBendRadiusSec1 = sec1LimitEpsilon > 0 ? (sec1r / sec1LimitEpsilon) + sec1R : 0;
+
+  // 波纹管长度计算 L = theta * rho，且 rho = r/epsilon + R
   const thetaRad = (params.bellows.thetaDeg * Math.PI) / 180; // 角度转弧度
   const epsilon = params.bellows.epsilonPercent / 100;        // 百分比转小数
   const r = params.sec2.d / 2;                                // 细丝半径 (r)
@@ -79,6 +85,8 @@ const results = computed(() => {
     totalW1,
     totalW2,
     ratio,
+    minBendRadiusSec1,
+    sec1LimitEpsilonPercent: sec1LimitEpsilon * 100,
     bellowsLength: L,
   };
 });
@@ -296,6 +304,14 @@ onMounted(() => {
             <label>{{ t('surgical.angle') }}</label>
             <input type="number" v-model.number="params.sec1.angle">
           </div>
+          <div class="control-row">
+            <label :title="t('surgical.section1.min_radius_tip', { epsilon: results.sec1LimitEpsilonPercent.toFixed(1) })">
+              {{ t('surgical.section1.min_radius_label') }}
+            </label>
+            <span class="text-xl font-bold text-indigo-600 dark:text-indigo-400 font-mono">
+              {{ results.minBendRadiusSec1.toFixed(3) }} <span class="text-sm text-gray-500 font-normal">mm</span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -360,6 +376,13 @@ onMounted(() => {
           <span class="label">{{ t('surgical.results.min_wall') }}</span>
           <span class="val text-lg" :class="resultMetrics.minWallThickness < params.base.gap ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'">
             {{ resultMetrics.minWallThickness.toFixed(3) }} mm
+          </span>
+        </div>
+
+        <div class="res-item">
+          <span class="label">{{ t('surgical.results.min_bend_radius_sec1') }}</span>
+          <span class="val text-xl text-indigo-600 dark:text-indigo-400">
+            {{ results.minBendRadiusSec1.toFixed(3) }} <span class="text-sm text-gray-500 font-normal">mm</span>
           </span>
         </div>
 
